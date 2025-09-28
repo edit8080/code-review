@@ -22,6 +22,31 @@ def parse_gemini_response(response_text: str) -> dict:
         print(f"Failed to decode JSON from Gemini response. Error: {e}", file=sys.stderr)
         return {"general_review": "Failed to parse AI response.", "line_comments": []}
 
+# diff에서 유효한 라인 번호를 추출하는 함수 추가
+def get_valid_line_numbers_from_diff(diff_text: str) -> dict:
+    valid_lines_by_file = {}
+    current_file = None
+    
+    for line in diff_text.split('\n'):
+        if line.startswith('+++ b/'):
+            current_file = line[6:]
+            valid_lines_by_file[current_file] = set()
+            line_number_in_hunk = 0
+            is_in_hunk = False
+        elif line.startswith('@@'):
+            match = re.search(r'\+([0-9]+)', line)
+            if match:
+                line_number_in_hunk = int(match.group(1))
+                is_in_hunk = True
+        elif is_in_hunk and current_file:
+            if line.startswith('+'):
+                valid_lines_by_file[current_file].add(line_number_in_hunk)
+                line_number_in_hunk += 1
+            elif not line.startswith('-'):
+                line_number_in_hunk += 1
+                
+    return valid_lines_by_file
+
 # PR에 이미 달려있는 봇의 리뷰 코멘트를 모두 가져옴
 def get_existing_comments(token: str, owner: str, repo: str, pull_number: int) -> set:
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}/comments"
@@ -32,7 +57,6 @@ def get_existing_comments(token: str, owner: str, repo: str, pull_number: int) -
     
     existing_comments = set()
     for comment in response.json():
-        # 봇이 작성한 코멘트만 필터링
         if comment.get("user", {}).get("login") == "github-actions[bot]":
             existing_comments.add((comment['path'], comment['line'], comment['body']))
     return existing_comments
@@ -65,6 +89,9 @@ def main():
         set_output("general_review", "No changes detected.")
         return
 
+    # diff에서 유효한 라인 번호 목록을 미리 추출
+    valid_lines = get_valid_line_numbers_from_diff(diff_text)
+
     # 2. 프롬프트 파일 읽기
     try:
         with open(prompt_path, 'r', encoding='utf-8') as f:
@@ -89,22 +116,27 @@ def main():
     try:
         existing_comments = get_existing_comments(github_token, owner, repo, int(pull_request_number))
     except Exception as e:
-        print(f"::warning::Could not fetch existing comments: {e}", file=sys.stderr)
+        print(f"Could not fetch existing comments: {e}", file=sys.stderr)
         existing_comments = set()
 
-    # 4. 새로운 코멘트 생성 (중복 제외)
+    # 4. 새로운 코멘트 생성 (라인 번호 유효성 검증 및 중복 제외)
     github_review_comments = []
     line_comments_data = parsed_data.get("line_comments", [])
     if isinstance(line_comments_data, list):
         for item in line_comments_data:
-            if all(key in item for key in ["file_path", "line_number", "comment", "priority"]):
-                path = item["file_path"]
-                line = int(item["line_number"])
-                body = f"**[{item['priority']}]**\n\n{item['comment']}"
-                
-                # 이미 존재하는 코멘트가 아니라면 목록에 추가
-                if (path, line, body) not in existing_comments:
-                    github_review_comments.append({"path": path, "line": line, "body": body})
+            path = item.get("file_path")
+            line = item.get("line_number")
+            
+            # 라인 번호가 유효한지 먼저 확인
+            if path in valid_lines and line in valid_lines[path]:
+                if all(key in item for key in ["comment", "priority"]):
+                    body = f"**[{item['priority']}]**\n\n{item['comment']}"
+                    
+                    # 유효한 라인에 대해 중복 코멘트가 아닌지 확인
+                    if (path, int(line), body) not in existing_comments:
+                        github_review_comments.append({"path": path, "line": int(line), "body": body})
+            else:
+                print(f"Skipping comment on invalid line: Gemini suggested a comment on '{path}' at line {line}, which is not part of the diff.", file=sys.stderr)
 
     # 5. 최종 결과 출력
     set_output("general_review", parsed_data.get("general_review", "No general review provided."))
