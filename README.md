@@ -17,6 +17,7 @@ Google의 Gemini API를 사용하여 Pull Request의 코드 변경 사항을 자
 
 1.  **Gemini API 키 발급**: [Google AI Studio](https://aistudio.google.com/)에 방문하여 Gemini API 키를 발급받으세요.
 2.  **GitHub Secrets 설정**: 리뷰를 받을 저장소의 `Settings` > `Secrets and variables` > `Actions` 메뉴로 이동하여, `GEMINI_API_KEY`라는 이름으로 발급받은 API 키를 등록합니다.
+3.  **GitHub PAT 설정**: `Settings` > `Secrets and variables` > `Actions` 메뉴 내에 `ACTION_ACCESS_TOKEN` 이름으로 Github PAT 을 동록합니다.
 
 ### Action 연동
 
@@ -42,16 +43,15 @@ jobs:
         uses: actions/checkout@v4
         with:
           # private repo 는 checkout 권한을 위해서 별도 token 설정이 필요합니다.
-          # - `Settings` > `Secrets and variables` > `Actions` 메뉴에 PAT 이름으로 추가해주세요.
           #
-          # token: ${{ secrets.PAT }}
+          # token: ${{ secrets.ACTION_ACCESS_TOKEN }}
           fetch-depth: 0
 
       - name: Run Gemini AI Code Review
         uses: edit8080/code-review@v1.0.0
         with:
           gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.ACTION_ACCESS_TOKEN }}
           prompt-type: "kotlin-spring-boot" # 사용할 프롬프트 타입을 지정
 ```
 
