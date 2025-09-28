@@ -23,21 +23,13 @@ runs:
 
     - name: Install Dependencies
       shell: bash
-      run: pip install google-generativeai
+      run: pip install google-generativeai requests
 
     - name: Get PR Diff
       id: get_diff
       shell: bash
       run: |
-        if [[ "${{ github.event.action }}" == "opened" ]]; then
-          echo "PR opened. Getting full diff against base branch."
-          DIFF_TARGET="${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }}"
-        else
-          echo "PR synchronized. Getting incremental diff from ${{ github.event.before }} to ${{ github.event.pull_request.head.sha }}."
-          DIFF_TARGET="${{ github.event.before }} ${{ github.event.pull_request.head.sha }}"
-        fi
-
-        PR_DIFF=$(git diff $DIFF_TARGET)
+        PR_DIFF=$(git diff ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
         echo "PR_DIFF<<EOF" >> $GITHUB_ENV
         echo "$PR_DIFF" >> $GITHUB_ENV
         echo "EOF" >> $GITHUB_ENV
@@ -47,12 +39,10 @@ runs:
       shell: bash
       run: |
         FILE_PATH="${{ github.action_path }}/prompts/${{ inputs.prompt-type }}.md"
-
         if [[ ! -f "$FILE_PATH" ]]; then
           echo "Prompt file not found for type '${{ inputs.prompt-type }}'."
           exit 1
         fi
-
         echo "PROMPT_PATH=$FILE_PATH" >> $GITHUB_ENV
 
     - name: Run AI Code Review
@@ -61,6 +51,9 @@ runs:
       run: python ${{ github.action_path }}/review.py
       env:
         GEMINI_API_KEY: ${{ inputs.gemini-api-key }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        PULL_REQUEST_NUMBER: ${{ github.event.pull_request.number }}
 
     - name: Post Review Comment as a Review
       uses: actions/github-script@v7
@@ -73,7 +66,7 @@ runs:
           const generalReview = process.env.GENERAL_REVIEW;
           const lineComments = JSON.parse(process.env.LINE_COMMENTS);
 
-          if (lineComments.length > 0) {
+          if (lineComments && lineComments.length > 0) {
             await github.rest.pulls.createReview({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -83,13 +76,11 @@ runs:
               event: "COMMENT",
               comments: lineComments
             });
-          } else {
-            if (generalReview && generalReview.trim() !== "") {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body: `🤖 **Gemini AI General Review**\n\n${generalReview}`
-              });
-            }
+          } else if (generalReview && generalReview.trim() !== "" && generalReview.trim() !== "No changes detected.") {
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `🤖 **Gemini AI General Review**\n\n${generalReview}`
+            });
           }
