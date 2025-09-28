@@ -26,6 +26,7 @@ def parse_gemini_response(response_text: str) -> dict:
 def get_valid_line_numbers_from_diff(diff_text: str) -> dict:
     valid_lines_by_file = {}
     current_file = None
+    is_in_hunk = False
     
     for line in diff_text.split('\n'):
         if line.startswith('+++ b/'):
