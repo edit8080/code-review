@@ -75,7 +75,7 @@ def main():
                 github_review_comments.append({
                     "path": item["file_path"],
                     "line": int(item["line_number"]),
-                    "body": f"**[${item['priority']}]**\n\n{item['comment']}"
+                    "body": f"**[{item['priority']}]**\n\n{item['comment']}"
                 })
 
     # 5. 최종 결과물을 두 개의 출력 변수로 설정
