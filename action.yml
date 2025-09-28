@@ -29,7 +29,15 @@ runs:
       id: get_diff
       shell: bash
       run: |
-        PR_DIFF=$(git diff ${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }})
+        if [[ "${{ github.event.action }}" == "opened" ]]; then
+          echo "PR opened. Getting full diff against base branch."
+          DIFF_TARGET="${{ github.event.pull_request.base.sha }} ${{ github.event.pull_request.head.sha }}"
+        else
+          echo "PR synchronized. Getting incremental diff from ${{ github.event.before }} to ${{ github.event.pull_request.head.sha }}."
+          DIFF_TARGET="${{ github.event.before }} ${{ github.event.pull_request.head.sha }}"
+        fi
+
+        PR_DIFF=$(git diff $DIFF_TARGET)
         echo "PR_DIFF<<EOF" >> $GITHUB_ENV
         echo "$PR_DIFF" >> $GITHUB_ENV
         echo "EOF" >> $GITHUB_ENV
