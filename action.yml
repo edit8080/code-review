@@ -56,32 +56,32 @@ runs:
 
     - name: Post Review Comment as a Review
       uses: actions/github-script@v7
-      with:
-        github-token: ${{ inputs.github-token }}
       env:
         GENERAL_REVIEW: ${{ steps.review.outputs.general_review }}
         LINE_COMMENTS: ${{ steps.review.outputs.line_comments }}
-      script: |
-        const generalReview = process.env.GENERAL_REVIEW;
-        const lineComments = JSON.parse(process.env.LINE_COMMENTS);
+      with:
+        github-token: ${{ inputs.github-token }}
+        script: |
+          const generalReview = process.env.GENERAL_REVIEW;
+          const lineComments = JSON.parse(process.env.LINE_COMMENTS);
 
-        if (lineComments.length > 0) {
-          await github.rest.pulls.createReview({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: context.issue.number,
-            commit_id: "${{ github.event.pull_request.head.sha }}",
-            body: generalReview,
-            event: "COMMENT",
-            comments: lineComments
-          });
-        } else {
-          if (generalReview && generalReview.trim() !== "") {
-            await github.rest.issues.createComment({
+          if (lineComments.length > 0) {
+            await github.rest.pulls.createReview({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `🤖 **Gemini AI General Review**\n\n${generalReview}`
+              pull_number: context.issue.number,
+              commit_id: "${{ github.event.pull_request.head.sha }}",
+              body: generalReview,
+              event: "COMMENT",
+              comments: lineComments
             });
+          } else {
+            if (generalReview && generalReview.trim() !== "") {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `🤖 **Gemini AI General Review**\n\n${generalReview}`
+              });
+            }
           }
-        }
