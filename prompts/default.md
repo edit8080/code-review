@@ -46,23 +46,23 @@
   - P5: 극히 사소하여 무시할 수 있는 문제입니다.
 
 ```json
-{
+{{
   "general_review": "전반적인 코드 변경 사항에 대한 기술적 요약...",
   "line_comments": [
-    {
+    {{
       "file_path": "src/main/kotlin/com/example/user/UserService.kt",
       "line_number": 42,
       "comment": "이 변수명은 역할이 명확하게 드러나지 않습니다. `userProfile` 대신 `userWithPermissions`와 같이 구체적인 이름으로 변경하는 것을 고려해보세요.",
       "priority": "P3"
-    },
-    {
+    }},
+    {{
       "file_path": "src/main/kotlin/com/example/order/OrderRepository.kt",
       "line_number": 15,
       "comment": "N+1 문제가 발생할 수 있는 쿼리입니다. Fetch Join을 사용하여 최적화해야 합니다.",
       "priority": "P2"
-    }
+    }}
   ]
-}
+}}
 ```
 
 **예시:**
